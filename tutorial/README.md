@@ -17,6 +17,7 @@ This demo automatically deploys the topology of services as defined in the [Debe
   * [Using SQL Server](#using-sql-server)
   * [Using Db2](#using-db2)
   * [Using Cassandra](#using-cassandra)
+  * [Using Cassandra with PropertyFileSnitch](#using-cassandra-with-propertyfilesnitch)
   * [Using externalized secrets](#using-externalized-secrets)
   * [Debugging](#debugging)
 
@@ -369,6 +370,35 @@ DELETE FROM customers WHERE id = 5;
 # Shut down the cluster
 docker-compose -f docker-compose-cassandra.yaml down
 ```
+
+## Using Cassandra with PropertyFileSnitch
+
+```shell
+# Start the topology as defined in https://debezium.io/docs/tutorial/
+export DEBEZIUM_VERSION=1.3
+
+docker-compose -f docker-compose-cassandra2.yaml up --build
+
+# Consume messages from a Debezium topic
+docker-compose -f docker-compose-cassandra2.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
+    --bootstrap-server kafka:9092 \
+    --from-beginning \
+    --property print.key=true \
+    --topic server1.dbo.customers
+
+# Modify records in the database via Cassandra client (note the TX logs will only be flushed out,
+and thus be picked up by the connector, after accumulating 1 MB of changes)
+
+docker-compose -f docker-compose-cassandra2.yaml exec cassandra bash -c 'cqlsh --keyspace=testdb'
+
+INSERT INTO customers(id,first_name,last_name,email) VALUES (5,'Roger','Poor','roger@poor.com');
+UPDATE customers set first_name = 'Barry' where id = 5;
+DELETE FROM customers WHERE id = 5;
+
+# Shut down the cluster
+docker-compose -f docker-compose-cassandra.yaml down
+```
+
 
 ## Using externalized secrets
 
